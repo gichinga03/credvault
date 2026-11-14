@@ -4,14 +4,14 @@ import (
 	"database/sql"
 	"fmt"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 var DB *sql.DB
 
 func Init(path string) error {
 	var err error
-	DB, err = sql.Open("sqlite3", path+"?_foreign_keys=on")
+	DB, err = sql.Open("sqlite", path+"?_foreign_keys=on")
 	if err != nil {
 		return fmt.Errorf("opening db: %w", err)
 	}
@@ -33,6 +33,7 @@ func migrate() error {
 		project_id  TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
 		label       TEXT NOT NULL,
 		type        TEXT NOT NULL,
+		subtype     TEXT NOT NULL DEFAULT 'other',
 		username    TEXT,
 		secret      TEXT NOT NULL,
 		metadata    TEXT,
