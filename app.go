@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -26,15 +27,39 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	// Store DB next to binary in user's home
-	home, _ := os.UserHomeDir()
-	dbDir := filepath.Join(home, ".credvault")
-	os.MkdirAll(dbDir, 0700)
-	dbPath := filepath.Join(dbDir, "vault.db")
+	dbPath := getDBPath()
 
 	if err := db.Init(dbPath); err != nil {
 		panic(fmt.Sprintf("db init: %v", err))
 	}
+}
+
+func getDBPath() string {
+	var dbDir string
+
+	switch runtime.GOOS {
+	case "windows":
+		// Use %APPDATA%\CredVault on Windows
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			appData = filepath.Join(os.Getenv("USERPROFILE"), "AppData", "Roaming")
+		}
+		dbDir = filepath.Join(appData, "CredVault")
+	case "darwin":
+		// Use ~/Library/Application Support/CredVault on macOS
+		home, _ := os.UserHomeDir()
+		dbDir = filepath.Join(home, "Library", "Application Support", "CredVault")
+	default:
+		// Linux — ~/.credvault
+		home, _ := os.UserHomeDir()
+		dbDir = filepath.Join(home, ".credvault")
+	}
+
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		panic(fmt.Sprintf("creating db dir %s: %v", dbDir, err))
+	}
+
+	return filepath.Join(dbDir, "vault.db")
 }
 
 // ── Projects ──────────────────────────────────────────────────────────────────
@@ -134,17 +159,17 @@ func (a *App) UpdateCred(id, payloadJSON string) (*models.Credential, error) {
 		return nil, fmt.Errorf("invalid payload: %w", err)
 	}
 	c := &models.Credential{
-		ID:       id,
+		ID:        id,
 		ProjectID: p.ProjectID,
-		Label:    p.Label,
-		Type:     models.CredentialType(p.Type),
-		Subtype:  p.Subtype,
-		Username: p.Username,
-		Tags:     p.Tags,
-		Source:   p.Source,
-		Metadata: p.Metadata,
-		Valid:    true,
-		Operator: p.Operator,
+		Label:     p.Label,
+		Type:      models.CredentialType(p.Type),
+		Subtype:   p.Subtype,
+		Username:  p.Username,
+		Tags:      p.Tags,
+		Source:    p.Source,
+		Metadata:  p.Metadata,
+		Valid:     true,
+		Operator:  p.Operator,
 	}
 	if err := db.UpdateCredential(c, p.Secret); err != nil {
 		return nil, err
